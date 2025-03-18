@@ -1,21 +1,18 @@
-const express = require("express");
+const express = require('express');
 
 const router = express.Router();
-const { dataSource } = require("../db/data-source");
-const logger = require("../utils/logger")("Admin");
-const { successMessage, errorMessage } = require("../utils/messageUtils");
-const { isNotValidInteger, isNotValidUUID } = require("../utils/validater");
+const { dataSource } = require('../db/data-source');
+const logger = require('../utils/logger')('Admin');
+const { successMessage, errorMessage } = require('../utils/messageUtils');
+const { isNotValidInteger, isNotValidUUID } = require('../utils/validater');
 
-const User = require("../entities/User");
-const coachRepo = dataSource.getRepository("Coach");
-const userRepo = dataSource.getRepository("User");
-const courseRepo = dataSource.getRepository("Course");
-const skillRepo = dataSource.getRepository("Skill");
+const User = require('../entities/User');
+const coachRepo = dataSource.getRepository('Coach');
 
-router.get("/", async (req, res, next) => {
+router.get('/', async (req, res, next) => {
   const { per, page } = req.query;
   if (isNotValidInteger(Number(per) || isNotValidInteger(Number(page)))) {
-    errorMessage(res, 400, "failed", "查詢參數錯誤");
+    errorMessage(res, 400, 'failed', '查詢參數錯誤');
     return;
   }
 
@@ -24,23 +21,23 @@ router.get("/", async (req, res, next) => {
       select: { id: true, User: { name: true } },
       take: per,
       skip: per * (page - 1),
-      relations: ["User"],
+      relations: ['User'],
     });
     const coaches = result.map((item) => {
       const { name } = { ...item.User };
       return { ...item, name, User: undefined };
     });
 
-    successMessage(res, 200, "success", coaches);
+    successMessage(res, 200, 'success', coaches);
   } catch (error) {
     next(error);
   }
 });
 
-router.get("/:coachId", async (req, res, next) => {
+router.get('/:coachId', async (req, res, next) => {
   const { coachId } = req.params;
   if (isNotValidUUID(coachId)) {
-    errorMessage(res, 400, "failed", "欄位未填寫正確");
+    errorMessage(res, 400, 'failed', '欄位未填寫正確');
     return;
   }
 
@@ -53,18 +50,18 @@ router.get("/:coachId", async (req, res, next) => {
           role: true,
         },
       },
-      relations: ["User"],
+      relations: ['User'],
     });
 
     if (!foundCoach) {
-      errorMessage(res, 400, "failed", "找不到該教練");
+      errorMessage(res, 400, 'failed', '找不到該教練');
       return;
     }
 
     const user = { ...foundCoach.User };
     const coach = { ...foundCoach, User: undefined };
 
-    successMessage(res, 200, "success", { user, coach });
+    successMessage(res, 200, 'success', { user, coach });
   } catch (error) {
     next(error);
   }
