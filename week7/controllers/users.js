@@ -16,8 +16,8 @@ const {
 } = require('../utils/validater');
 
 const { generateJWT } = require('../utils/jwtUtils');
-const isAuth = require('../middleware/isAuth');
-const userRepo = dataSource.getRepository(User);
+const isAuth = require('../middlewares/isAuth');
+const userRepo = dataSource.getRepository('User');
 
 const logger = require('../utils/logger')('UsersController');
 

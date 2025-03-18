@@ -28,8 +28,8 @@ const {
   isNotValidUUID,
   isNotValidImageURL,
 } = require('../utils/validater');
-const isAuth = require('../middleware/isAuth');
-const isCoach = require('../middleware/isCoach');
+const isAuth = require('../middlewares/isAuth');
+const isCoach = require('../middlewares/isCoach');
 
 const coachRepo = dataSource.getRepository('Coach');
 const userRepo = dataSource.getRepository('User');

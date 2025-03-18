@@ -11,7 +11,7 @@ const {
   isNotValidInteger,
   isNotValidUUID,
 } = require('../utils/validater');
-const isAuth = require('../middleware/isAuth');
+const isAuth = require('../middlewares/isAuth');
 
 const User = require('../entities/User');
 const Skill = require('../entities/Skill');
