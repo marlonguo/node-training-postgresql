@@ -1,17 +1,18 @@
-const express = require("express");
-const cors = require("cors");
-const path = require("path");
-const pinoHttp = require("pino-http");
+const express = require('express');
+const cors = require('cors');
+const path = require('path');
+const pinoHttp = require('pino-http');
 
-const logger = require("./utils/logger")("App");
+const logger = require('./utils/logger')('App');
 
-const creditPackageRouter = require("./routes/creditPackage");
-const skillRouter = require("./routes/skill");
-const userRouter = require("./routes/users");
-const adminRouter = require("./routes/admin");
-const coachesRouter = require("./routes/coaches");
+const creditPackageRouter = require('./routes/creditPackage');
+const skillRouter = require('./routes/skill');
+const userRouter = require('./routes/users');
+const adminRouter = require('./routes/admin');
+const coachesRouter = require('./routes/coaches');
+const coursesRouter = require('./routes/courses');
 
-const { errorMessage } = require("./utils/messageUtils");
+const { errorMessage } = require('./utils/messageUtils');
 
 const app = express();
 app.use(cors());
@@ -28,20 +29,21 @@ app.use(
     },
   })
 );
-app.use(express.static(path.join(__dirname, "public")));
+app.use(express.static(path.join(__dirname, 'public')));
 
-app.get("/healthcheck", (req, res) => {
+app.get('/healthcheck', (req, res) => {
   res.status(200);
-  res.send("OK");
+  res.send('OK');
 });
-app.use("/api/credit-package", creditPackageRouter);
-app.use("/api/coaches/skill", skillRouter);
-app.use("/api/coaches", coachesRouter);
-app.use("/api/users", userRouter);
-app.use("/api/admin", adminRouter);
+app.use('/api/credit-package', creditPackageRouter);
+app.use('/api/coaches/skill', skillRouter);
+app.use('/api/coaches', coachesRouter);
+app.use('/api/users', userRouter);
+app.use('/api/admin', adminRouter);
+app.use('/api/courses', coursesRouter);
 app.use((req, res, next) => {
-  errorMessage(res, 404, "error", "無此路由")
-})
+  errorMessage(res, 404, 'error', '無此路由');
+});
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
@@ -50,9 +52,9 @@ app.use((err, req, res, next) => {
 
   // errorMessage(res, statusCode, "error", "伺服器錯誤");
   res.status(statusCode).json({
-    status: statusCode === 500 ? "error" : "failed",
-    message: err.message || "伺服器錯誤"
-  })
+    status: statusCode === 500 ? 'error' : 'failed',
+    message: err.message || '伺服器錯誤',
+  });
 });
 
 module.exports = app;

@@ -8,11 +8,11 @@ const userRepo = dataSource.getRepository('User');
 async function isAuth(req, res, next) {
   try {
     const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startWith('Bearer')) {
+    if (!authHeader || !authHeader.startsWith('Bearer')) {
       next(appError(401, '你尚未登入'));
       return;
     }
-    const token = authHeader.split('Bearer')[1];
+    const token = authHeader.split('Bearer ')[1];
     const decoded = await verifyJWT(token);
     const currentUser = await userRepo.findOne({
       where: { id: decoded.id },
@@ -22,7 +22,7 @@ async function isAuth(req, res, next) {
       return;
     }
 
-    req.usser = currentUser;
+    req.user = currentUser;
     next();
   } catch (error) {
     next(error);

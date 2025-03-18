@@ -138,6 +138,10 @@ router.put('/profile', isAuth, async (req, res, next) => {
       return;
     }
     const updatedUser = await userRepo.update({ id }, { name });
+    if (currentUser.name === name) {
+      errorMessage(res, 400, 'failed', '使用者名稱未變更');
+      return;
+    }
     if (updatedUser.affected === 0) {
       errorMessage(res, 400, 'failed', '更新使用者失敗');
       return;
