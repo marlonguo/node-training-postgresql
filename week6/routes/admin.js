@@ -116,7 +116,7 @@ router.put(
         isNotValidSting(start_at) ||
         isNotValidSting(end_at) ||
         isNotValidInteger(max_participants) ||
-        !meeting_url.startWith('https://')
+        !meeting_url.startsWith('https://')
       ) {
         errorMessage(res, 400, 'failed', '欄位未填寫正確');
       }

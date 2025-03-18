@@ -19,20 +19,6 @@ const courseRepo = dataSource.getRepository('Course');
 
 router.get('/', async (req, res, next) => {
   try {
-    // const courses = await courseRepo.find({
-    //   select: {
-    //     id: true,
-    //     // skill_id: true,
-    //     name: true,
-    //     description: true,
-    //     start_at: true,
-    //     end_at: true,
-    //     max_participants: true,
-    //     Skill: { name: true },
-    //     User: { name: true },
-    //   },
-    //   relations: ['Skill', 'User'],
-    // });
     const courses = await courseRepo
       .createQueryBuilder('course')
       .leftJoinAndSelect('course.Skill', 'skill')
