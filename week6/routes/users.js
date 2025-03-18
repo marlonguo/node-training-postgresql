@@ -137,11 +137,11 @@ router.put('/profile', isAuth, async (req, res, next) => {
       next(appError(400, '欄位未填寫正確'));
       return;
     }
-    const updatedUser = await userRepo.update({ id }, { name });
-    if (currentUser.name === name) {
+    if (req.user.name === name) {
       errorMessage(res, 400, 'failed', '使用者名稱未變更');
       return;
     }
+    const updatedUser = await userRepo.update({ id }, { name });
     if (updatedUser.affected === 0) {
       errorMessage(res, 400, 'failed', '更新使用者失敗');
       return;
