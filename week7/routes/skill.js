@@ -1,12 +1,13 @@
-const express = require('express')
+const express = require('express');
 
-const router = express.Router()
-const skill = require('../controllers/skill')
+const router = express.Router();
+const skill = require('../controllers/skill');
+const handleErrorAsync = require('../utils/handleErrorAsync');
 
-router.get('/', skill.getAll)
+router.get('/', handleErrorAsync(skill.getAll));
 
-router.post('/', skill.post)
+router.post('/', handleErrorAsync(skill.post));
 
-router.delete('/:skillId', skill.deletePackage)
+router.delete('/:skillId', handleErrorAsync(skill.deleteSkill));
 
-module.exports = router
+module.exports = router;

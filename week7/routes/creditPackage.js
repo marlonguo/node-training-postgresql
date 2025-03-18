@@ -1,22 +1,27 @@
-const express = require('express')
+const express = require('express');
 
-const router = express.Router()
-const config = require('../config/index')
-const { dataSource } = require('../db/data-source')
-const logger = require('../utils/logger')('CreditPackage')
-const creditPackage = require('../controllers/creditPackage')
-const auth = require('../middlewares/auth')({
-  secret: config.get('secret').jwtSecret,
-  userRepository: dataSource.getRepository('User'),
-  logger
-})
+const router = express.Router();
+const config = require('../config/index');
+const { dataSource } = require('../db/data-source');
+const logger = require('../utils/logger')('CreditPackage');
+const creditPackage = require('../controllers/creditPackage');
+const isAuth = require('../middlewares/isAuth');
 
-router.get('/', creditPackage.getAll)
+const handleErrorAsync = require('../utils/handleErrorAsync');
 
-router.post('/', creditPackage.post)
+router.get('/', handleErrorAsync(creditPackage.getAll));
 
-router.post('/:creditPackageId', auth, creditPackage.postUserBuy)
+router.post('/', handleErrorAsync(creditPackage.post));
 
-router.delete('/:creditPackageId', creditPackage.deletePackage)
+router.post(
+  '/:creditPackageId',
+  isAuth,
+  handleErrorAsync(creditPackage.postUserBuy)
+);
 
-module.exports = router
+router.delete(
+  '/:creditPackageId',
+  handleErrorAsync(creditPackage.deletePackage)
+);
+
+module.exports = router;

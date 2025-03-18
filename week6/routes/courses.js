@@ -1,5 +1,5 @@
 const express = require('express');
-
+const { IsNull } = require('typeorm');
 const router = express.Router();
 const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('Course');

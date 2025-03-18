@@ -1,16 +1,13 @@
-const FORBIDDEN_MESSAGE = '使用者尚未成為教練'
-const PERMISSION_DENIED_STATUS_CODE = 401
+const appError = require('../utils/appError');
+const logger = require('../utils/logger')('isCoach');
 
-function generateError (status = PERMISSION_DENIED_STATUS_CODE, message = FORBIDDEN_MESSAGE) {
-  const error = new Error(message)
-  error.status = status
-  return error
-}
-
-module.exports = (req, res, next) => {
+async function isCoach(req, res, next) {
   if (!req.user || req.user.role !== 'COACH') {
-    next(generateError())
-    return
+    logger.error(req.user);
+    next(appError(401, '使用者尚未成為教練'));
+    return;
   }
-  next()
+  next();
 }
+
+module.exports = isCoach;

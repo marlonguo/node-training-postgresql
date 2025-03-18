@@ -1,12 +1,13 @@
-const express = require('express')
+const express = require('express');
 
-const router = express.Router()
-const coaches = require('../controllers/coaches')
+const router = express.Router();
+const coaches = require('../controllers/coaches');
+const handleErrorAsync = require('../utils/handleErrorAsync');
 
-router.get('/', coaches.getCoaches)
+router.get('/', handleErrorAsync(coaches.getCoaches));
 
-router.get('/:coachId', coaches.getCoachDetail)
+router.get('/:coachId', handleErrorAsync(coaches.getCoachDetail));
 
-router.get('/:coachId/courses', coaches.getCoachCourses)
+router.get('/:coachId/courses', handleErrorAsync(coaches.getCoachCourses));
 
-module.exports = router
+module.exports = router;

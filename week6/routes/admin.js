@@ -19,11 +19,6 @@ const userRepo = dataSource.getRepository('User');
 const courseRepo = dataSource.getRepository('Course');
 const skillRepo = dataSource.getRepository('Skill');
 
-router.get('/coaches/course', async (req, res, next) => {
-  const { userId } = req.params;
-  errorMessage(res, 409, 'failed', userId);
-});
-
 router.post('/coaches/courses', isAuth, isCoach, async (req, res, next) => {
   try {
     const {
