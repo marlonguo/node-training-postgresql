@@ -14,6 +14,7 @@ const {
 
 const { generateJWT } = require('../utils/jwtUtils');
 const userRepo = dataSource.getRepository('User');
+const creditPurchaseRepo = dataSource.getRepository('CreditPurchase');
 
 const logger = require('../utils/logger')('UsersController');
 
@@ -112,40 +113,32 @@ async function getProfile(req, res, next) {
 }
 
 async function getCreditPackage(req, res, next) {
-  try {
-    const { id } = req.user;
-    const creditPurchaseRepo = dataSource.getRepository('CreditPurchase');
-    const creditPurchase = await creditPurchaseRepo.find({
-      select: {
-        purchased_credits: true,
-        price_paid: true,
-        purchase_at: true,
-        CreditPackage: {
-          name: true,
-        },
+  const { id } = req.user;
+  const creditPurchase = await creditPurchaseRepo.find({
+    select: {
+      purchased_credits: true,
+      price_paid: true,
+      purchase_at: true,
+      CreditPackage: {
+        name: true,
       },
-      where: {
-        user_id: id,
-      },
-      relations: {
-        CreditPackage: true,
-      },
-    });
-    res.status(200).json({
-      status: 'success',
-      data: creditPurchase.map((item) => {
-        return {
-          name: item.CreditPackage.name,
-          purchased_credits: item.purchased_credits,
-          price_paid: parseInt(item.price_paid, 10),
-          purchase_at: item.purchase_at,
-        };
-      }),
-    });
-  } catch (error) {
-    logger.error('取得使用者資料錯誤:', error);
-    next(error);
-  }
+    },
+    where: {
+      user_id: id,
+    },
+    relations: {
+      CreditPackage: true,
+    },
+  });
+  const data = creditPurchase.map((item) => {
+    return {
+      name: item.CreditPackage.name,
+      purchased_credits: item.purchased_credits,
+      price_paid: parseInt(item.price_paid, 10),
+      purchase_at: item.purchase_at,
+    };
+  });
+  successMessage(res, 200, 'success', data);
 }
 
 async function putProfile(req, res, next) {

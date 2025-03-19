@@ -16,7 +16,6 @@ const isAuth = require('../middlewares/isAuth');
 
 const User = require('../entities/User');
 const Skill = require('../entities/Skill');
-const appError = require('../utils/appError');
 const courseRepo = dataSource.getRepository('Course');
 const creditPurchaseRepo = dataSource.getRepository('CreditPurchase');
 const courseBookingRepo = dataSource.getRepository('CourseBooking');
