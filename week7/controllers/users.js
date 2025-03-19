@@ -15,6 +15,7 @@ const {
 const { generateJWT } = require('../utils/jwtUtils');
 const userRepo = dataSource.getRepository('User');
 const creditPurchaseRepo = dataSource.getRepository('CreditPurchase');
+const courseBookingRepo = dataSource.getRepository('CourseBooking');
 
 const logger = require('../utils/logger')('UsersController');
 
@@ -229,81 +230,78 @@ async function putPassword(req, res, next) {
 }
 
 async function getCourseBooking(req, res, next) {
-  try {
-    const { id } = req.user;
-    const creditPurchaseRepo = dataSource.getRepository('CreditPurchase');
-    const courseBookingRepo = dataSource.getRepository('CourseBooking');
-    const userCredit = await creditPurchaseRepo.sum('purchased_credits', {
+  const { id } = req.user;
+
+  // 個人已購買課堂數
+  const userCredit = await creditPurchaseRepo.sum('purchased_credits', {
+    user_id: id,
+  });
+  // 個人已使用課堂數
+  const userUsedCredit = await courseBookingRepo.count({
+    where: {
       user_id: id,
+      cancelledAt: IsNull(),
+    },
+  });
+  const courseBookingList = await courseBookingRepo.find({
+    select: {
+      course_id: true,
+      Course: {
+        name: true,
+        start_at: true,
+        end_at: true,
+        meeting_url: true,
+        user_id: true,
+      },
+    },
+    where: {
+      user_id: id,
+    },
+    order: {
+      Course: {
+        start_at: 'ASC',
+      },
+    },
+    relations: {
+      Course: true,
+    },
+  });
+  const coachUserIdMap = {};
+  if (courseBookingList.length > 0) {
+    courseBookingList.forEach((courseBooking) => {
+      coachUserIdMap[courseBooking.Course.user_id] =
+        courseBooking.Course.user_id;
     });
-    const userUsedCredit = await courseBookingRepo.count({
+    const coachUsers = await userRepo.find({
+      select: ['id', 'name'],
       where: {
-        user_id: id,
-        cancelledAt: IsNull(),
+        id: In(Object.values(coachUserIdMap)),
       },
     });
-    const courseBookingList = await courseBookingRepo.find({
-      select: {
-        course_id: true,
-        Course: {
-          name: true,
-          start_at: true,
-          end_at: true,
-          meeting_url: true,
-          user_id: true,
-        },
-      },
-      where: {
-        user_id: id,
-      },
-      order: {
-        Course: {
-          start_at: 'ASC',
-        },
-      },
-      relations: {
-        Course: true,
-      },
+    coachUsers.forEach((user) => {
+      coachUserIdMap[user.id] = user.name;
     });
-    const coachUserIdMap = {};
-    if (courseBookingList.length > 0) {
-      courseBookingList.forEach((courseBooking) => {
-        coachUserIdMap[courseBooking.Course.user_id] =
-          courseBooking.Course.user_id;
-      });
-      const coachUsers = await userRepo.find({
-        select: ['id', 'name'],
-        where: {
-          id: In(Object.values(coachUserIdMap)),
-        },
-      });
-      coachUsers.forEach((user) => {
-        coachUserIdMap[user.id] = user.name;
-      });
-      logger.debug(`courseBookingList: ${JSON.stringify(courseBookingList)}`);
-      logger.debug(`coachUsers: ${JSON.stringify(coachUsers)}`);
-    }
-    res.status(200).json({
-      status: 'success',
-      data: {
-        credit_remain: userCredit - userUsedCredit,
-        credit_usage: userUsedCredit,
-        course_booking: courseBookingList.map((courseBooking) => {
-          return {
-            course_id: courseBooking.course_id,
-            name: courseBooking.Course.name,
-            start_at: courseBooking.Course.start_at,
-            end_at: courseBooking.Course.end_at,
-            meeting_url: courseBooking.Course.meeting_url,
-            coach_name: coachUserIdMap[courseBooking.Course.user_id],
-          };
-        }),
-      },
-    });
-  } catch (error) {
-    logger.error('取得使用者課程錯誤:', error);
-    next(error);
+    logger.debug(`courseBookingList: ${JSON.stringify(courseBookingList)}`);
+    logger.debug(`coachUsers: ${JSON.stringify(coachUsers)}`);
   }
+  const credit_remain = userCredit - userUsedCredit;
+  const credit_usage = userUsedCredit;
+  const course_booking = courseBookingList.map((courseBooking) => {
+    return {
+      course_id: courseBooking.course_id,
+      name: courseBooking.Course.name,
+      start_at: courseBooking.Course.start_at,
+      end_at: courseBooking.Course.end_at,
+      meeting_url: courseBooking.Course.meeting_url,
+      coach_name: coachUserIdMap[courseBooking.Course.user_id],
+    };
+  });
+
+  successMessage(res, 200, 'success', {
+    credit_remain,
+    credit_usage,
+    course_booking,
+  });
 }
 
 module.exports = {

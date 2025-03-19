@@ -45,8 +45,19 @@ router.get('/', async (req, res, next) => {
 router.post('/:courseId', isAuth, async (req, res, next) => {
   try {
     const { courseId } = req.params;
+    const { id } = req.user;
     if (isNotValidUUID(courseId)) {
       next(appError(400, '欄位未填寫正確'));
+    }
+
+    const course = await courseRepo.findOne({
+      where: {
+        id: courseId,
+      },
+    });
+    if (!course) {
+      next(appError(400, 'ID錯誤'));
+      return;
     }
 
     const userCourseBooking = await courseBookingRepo.findOne({
@@ -96,7 +107,7 @@ router.post('/:courseId', isAuth, async (req, res, next) => {
   }
 });
 
-router.delete('/:creditPackageId', async (req, res, next) => {
+router.delete('/:courseId', isAuth, async (req, res, next) => {
   try {
     const { id } = req.user;
     const { courseId } = req.params;
