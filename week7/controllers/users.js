@@ -253,6 +253,9 @@ async function getCourseBooking(req, res, next) {
         meeting_url: true,
         user_id: true,
       },
+      User: {
+        name: true,
+      },
     },
     where: {
       user_id: id,
@@ -266,7 +269,8 @@ async function getCourseBooking(req, res, next) {
       Course: true,
     },
   });
-  const coachUserIdMap = {};
+
+  const coachUserIdMap = {}; // coach_id map to coach_name
   if (courseBookingList.length > 0) {
     courseBookingList.forEach((courseBooking) => {
       coachUserIdMap[courseBooking.Course.user_id] =

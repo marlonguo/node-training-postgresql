@@ -71,57 +71,39 @@ async function getCoachCourses(req, res, next) {
     next(appError(400, '欄位未填寫正確'));
     return;
   }
-  const coach = await coachRepo.findOne({
-    select: {
-      id: true,
-      user_id: true,
-      User: {
-        name: true,
-      },
-    },
-    where: {
-      id: coachId,
-    },
-    relations: {
-      User: true,
-    },
-  });
+
+  const coach = await coachRepo
+    .createQueryBuilder('coach')
+    .leftJoinAndSelect('coach.User', 'user')
+    .select(['coach.user_id', 'user.name'])
+    .getRawOne();
+
   if (!coach) {
     logger.warn('找不到該教練');
     next(appError(400, '找不到該教練'));
     return;
   }
   logger.info(`coach: ${JSON.stringify(coach)}`);
-  const courses = await courseRepo.find({
-    select: {
-      id: true,
-      name: true,
-      description: true,
-      start_at: true,
-      end_at: true,
-      max_participants: true,
-      Skill: {
-        name: true,
-      },
-    },
-    where: {
-      user_id: coach.user_id,
-    },
-    relations: {
-      Skill: true,
-    },
+
+  const courses = await courseRepo
+    .createQueryBuilder('course')
+    .leftJoinAndSelect('course.Skill', 'skill')
+    .select([
+      'course.id AS id',
+      'skill.name AS skill_name',
+      'course.name as name',
+      'course.description AS description',
+      'course.start_at AS start_at',
+      'course.end_at AS end_at',
+      'course.max_participants AS max_participants',
+    ])
+    .getRawMany();
+
+  const data = courses.map((ele) => {
+    ele['coach_name'] = coach.user_name;
+    return ele;
   });
-  logger.info(`courses: ${JSON.stringify(courses)}`);
-  const data = courses.map((course) => ({
-    id: course.id,
-    name: course.name,
-    description: course.description,
-    start_at: course.start_at,
-    end_at: course.end_at,
-    max_participants: course.max_participants,
-    coach_name: coach.User.name,
-    skill_name: course.Skill.name,
-  }));
+
   successMessage(res, 200, 'success', data);
 }
 

@@ -12,10 +12,7 @@ const {
   isNotValidInteger,
   isNotValidUUID,
 } = require('../utils/validater');
-const isAuth = require('../middlewares/isAuth');
 
-const User = require('../entities/User');
-const Skill = require('../entities/Skill');
 const courseRepo = dataSource.getRepository('Course');
 const creditPurchaseRepo = dataSource.getRepository('CreditPurchase');
 const courseBookingRepo = dataSource.getRepository('CourseBooking');
@@ -41,8 +38,19 @@ async function getAllCourses(req, res, next) {
 
 async function postCourseBooking(req, res, next) {
   const { courseId } = req.params;
+  const { id } = req.user;
   if (isNotValidUUID(courseId)) {
     next(appError(400, '欄位未填寫正確'));
+  }
+
+  const course = await courseRepo.findOne({
+    where: {
+      id: courseId,
+    },
+  });
+  if (!course) {
+    next(appError(400, 'ID錯誤'));
+    return;
   }
 
   const userCourseBooking = await courseBookingRepo.findOne({
