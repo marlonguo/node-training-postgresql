@@ -1,7 +1,8 @@
 const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('CoachesController');
 
-const { successMessage, errorMessage } = require('../utils/messageUtils');
+const { successMessage } = require('../utils/messageUtils');
+const appError = require('../utils/appError');
 const {
   isNotValidInteger,
   isNotValidUUID,
@@ -17,7 +18,7 @@ const skillRepo = dataSource.getRepository('Skill');
 async function getCoaches(req, res, next) {
   const { per, page } = req.query;
   if (isNotValidInteger(Number(per) || isNotValidInteger(Number(page)))) {
-    errorMessage(res, 400, 'failed', '查詢參數錯誤');
+    next(appError(400, '查詢參數錯誤'));
     return;
   }
 
@@ -38,7 +39,7 @@ async function getCoaches(req, res, next) {
 async function getCoachDetail(req, res, next) {
   const { coachId } = req.params;
   if (isNotValidUUID(coachId)) {
-    errorMessage(res, 400, 'failed', '欄位未填寫正確');
+    next(appError(400, '欄位未填寫正確'));
     return;
   }
 
@@ -54,7 +55,7 @@ async function getCoachDetail(req, res, next) {
   });
 
   if (!foundCoach) {
-    errorMessage(res, 400, 'failed', '找不到該教練');
+    next(appError(400, '找不到該教練'));
     return;
   }
 
@@ -67,7 +68,7 @@ async function getCoachDetail(req, res, next) {
 async function getCoachCourses(req, res, next) {
   const { coachId } = req.params;
   if (isNotValidUUID(coachId)) {
-    errorMessage(res, 400, 'failed', '欄位未填寫正確');
+    next(appError(400, '欄位未填寫正確'));
     return;
   }
   const coach = await coachRepo.findOne({
@@ -87,7 +88,7 @@ async function getCoachCourses(req, res, next) {
   });
   if (!coach) {
     logger.warn('找不到該教練');
-    errorMessage(res, 400, 'failed', '找不到該教練');
+    next(appError(400, '找不到該教練'));
     return;
   }
   logger.info(`coach: ${JSON.stringify(coach)}`);

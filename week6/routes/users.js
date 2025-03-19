@@ -6,11 +6,10 @@ const saltRounds = 10;
 const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('user');
 const config = require('../config/index');
-const { successMessage, errorMessage } = require('../utils/messageUtils');
+const { successMessage } = require('../utils/messageUtils');
 const appError = require('../utils/appError');
 const {
   isNotValidPassword,
-  isUndefined,
   isNotValidSting,
   isNotValidUserName,
   isNotValidEmail,
@@ -30,16 +29,16 @@ router.post('/signup', async (req, res, next) => {
       isNotValidEmail(email) ||
       isNotValidSting(password)
     ) {
-      errorMessage(res, 400, 'failed', '欄位未填寫正確');
+      next(appError(400, '欄位未填寫正確'));
       return;
     }
 
     if (isNotValidPassword(password)) {
-      errorMessage(
-        res,
-        400,
-        'failed',
-        '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
+      next(
+        appError(
+          400,
+          '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
+        )
       );
       return;
     }
@@ -51,7 +50,7 @@ router.post('/signup', async (req, res, next) => {
     });
 
     if (existEmail) {
-      errorMessage(res, 409, 'failed', 'Email 已被使用');
+      next(appError(409, 'Email 已被使用'));
       return;
     }
 
@@ -138,12 +137,12 @@ router.put('/profile', isAuth, async (req, res, next) => {
       return;
     }
     if (req.user.name === name) {
-      errorMessage(res, 400, 'failed', '使用者名稱未變更');
+      next(appError(400, '使用者名稱未變更'));
       return;
     }
     const updatedUser = await userRepo.update({ id }, { name });
     if (updatedUser.affected === 0) {
-      errorMessage(res, 400, 'failed', '更新使用者失敗');
+      next(appError(400, '更新使用者失敗'));
       return;
     }
 

@@ -3,7 +3,7 @@ const express = require('express');
 const router = express.Router();
 const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('Admin');
-const { successMessage, errorMessage } = require('../utils/messageUtils');
+const { successMessage } = require('../utils/messageUtils');
 const {
   isUndefined,
   isNotValidSting,
@@ -11,6 +11,7 @@ const {
   isNotValidUUID,
   isNotValidImageURL,
 } = require('../utils/validater');
+const appError = require('../utils/appError');
 const isAuth = require('../middleware/isAuth');
 const isCoach = require('../middleware/isCoach');
 
@@ -43,7 +44,7 @@ router.post('/coaches/courses', isAuth, isCoach, async (req, res, next) => {
       isNotValidSting(end_at) ||
       isNotValidInteger(max_participants)
     ) {
-      errorMessage(res, 400, 'failed', '欄位未填寫正確');
+      next(appError(400, '欄位未填寫正確'));
       return;
     }
 
@@ -52,7 +53,7 @@ router.post('/coaches/courses', isAuth, isCoach, async (req, res, next) => {
     });
 
     if (!existSkill) {
-      errorMessage(res, 400, 'failed', '此技能不存在');
+      next(appError(400, '此技能不存在'));
       return;
     }
 
@@ -61,10 +62,10 @@ router.post('/coaches/courses', isAuth, isCoach, async (req, res, next) => {
     });
 
     if (!existUser) {
-      errorMessage(res, 400, 'failed', '使用者不存在');
+      next(appError(400, '使用者不存在'));
       return;
     } else if (existUser.role !== 'COACH') {
-      errorMessage(res, 409, 'failed', '使用者尚未成為教練');
+      next(appError(400, '使用者尚未成為教練'));
       return;
     }
 
@@ -113,7 +114,7 @@ router.put(
         isNotValidInteger(max_participants) ||
         !meeting_url.startsWith('https://')
       ) {
-        errorMessage(res, 400, 'failed', '欄位未填寫正確');
+        next(appError(400, '欄位未填寫正確'));
       }
 
       const existCourse = await courseRepo.findOne({
@@ -121,7 +122,7 @@ router.put(
       });
 
       if (!existCourse) {
-        errorMessage(res, 400, 'failed', '課程不存在');
+        next(appError(400, '課程不存在'));
         return;
       }
 
@@ -130,7 +131,7 @@ router.put(
       });
 
       if (!existSkill) {
-        errorMessage(res, 400, 'failed', '技能不存在');
+        next(appError(400, '技能不存在'));
         return;
       }
 
@@ -147,7 +148,7 @@ router.put(
         }
       );
       if (updatedCourse.affected === 0) {
-        errorMessage(res, 400, 'failed', '更新課程失敗');
+        next(appError(400, '更新課程失敗'));
         return;
       }
 
@@ -170,7 +171,7 @@ router.post('/coaches/:userId', async (req, res, next) => {
       isNotValidInteger(experience_years) ||
       isNotValidSting(description)
     ) {
-      errorMessage(res, 400, 'failed', '欄位未填寫正確');
+      next(appError(400, '欄位未填寫正確'));
       return;
     }
 
@@ -179,7 +180,7 @@ router.post('/coaches/:userId', async (req, res, next) => {
       (isNotValidSting(profile_image_url) ||
         isNotValidImageURL(profile_image_url))
     ) {
-      errorMessage(res, 400, 'failed', '欄位未填寫正確');
+      next(appError(400, '欄位未填寫正確'));
       return;
     }
 
@@ -188,12 +189,12 @@ router.post('/coaches/:userId', async (req, res, next) => {
     });
 
     if (!existUser) {
-      errorMessage(res, 400, 'failed', '使用者不存在');
+      next(appError(400, '使用者不存在'));
       return;
     }
 
     if (existUser.role === 'COACH') {
-      errorMessage(res, 409, 'failed', '使用者已經是教練');
+      next(appError(409, '使用者已經是教練'));
       return;
     }
 
@@ -207,7 +208,7 @@ router.post('/coaches/:userId', async (req, res, next) => {
     );
 
     if (updatedUser.affected === 0) {
-      errorMessage(res, 400, 'failed', '更新使用者失敗');
+      next(appError(400, '更新使用者失敗'));
       return;
     }
 

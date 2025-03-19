@@ -12,6 +12,8 @@ const coachRouter = require('./routes/coaches');
 const coursesRouter = require('./routes/courses');
 // const uploadRouter = require('./routes/upload')
 
+const { errorMessage } = require('./utils/messageUtils');
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -40,21 +42,19 @@ app.use('/api/admin', adminRouter);
 app.use('/api/coaches', coachRouter);
 app.use('/api/courses', coursesRouter);
 // app.use('/api/upload', uploadRouter);
+app.use((req, res, next) => {
+  errorMessage(res, 404, 'error', '無此路由');
+});
 
 // eslint-disable-next-line no-unused-vars
 app.use((err, req, res, next) => {
   req.log.error(err);
-  if (err.status) {
-    res.status(err.status).json({
-      status: 'failed',
-      message: err.message,
-    });
-    return;
-  }
-  res.status(500).json({
-    status: 'error',
-    message: '伺服器錯誤',
-  });
+
+  const statusCode = err.statusCode || 500;
+  const status = statusCode === 500 ? 'error' : 'failed';
+  const message = err.message || '伺服器錯誤';
+
+  errorMessage(res, statusCode, status, message);
 });
 
 module.exports = app;

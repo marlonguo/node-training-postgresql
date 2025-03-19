@@ -1,42 +1,39 @@
 const { IsNull, In } = require('typeorm');
 
 const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const saltRounds = 10;
 const { dataSource } = require('../db/data-source');
-const config = require('../config/index');
-const { successMessage, errorMessage } = require('../utils/messageUtils');
+const { successMessage } = require('../utils/messageUtils');
 const appError = require('../utils/appError');
 const {
   isNotValidPassword,
-  isUndefined,
   isNotValidSting,
   isNotValidUserName,
   isNotValidEmail,
 } = require('../utils/validater');
 
 const { generateJWT } = require('../utils/jwtUtils');
-const isAuth = require('../middlewares/isAuth');
 const userRepo = dataSource.getRepository('User');
 
 const logger = require('../utils/logger')('UsersController');
 
 async function postSignup(req, res, next) {
+  const { name, email, password } = req.body;
   if (
     isNotValidUserName(name) ||
     isNotValidEmail(email) ||
     isNotValidSting(password)
   ) {
-    errorMessage(res, 400, 'failed', '欄位未填寫正確');
+    next(appError(400, '欄位未填寫正確'));
     return;
   }
 
   if (isNotValidPassword(password)) {
-    errorMessage(
-      res,
-      400,
-      'failed',
-      '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
+    next(
+      appError(
+        400,
+        '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
+      )
     );
     return;
   }
@@ -48,7 +45,7 @@ async function postSignup(req, res, next) {
   });
 
   if (existEmail) {
-    errorMessage(res, 409, 'failed', 'Email 已被使用');
+    next(appError(400, 'Email 已被使用'));
     return;
   }
 
@@ -122,7 +119,7 @@ async function getCreditPackage(req, res, next) {
       select: {
         purchased_credits: true,
         price_paid: true,
-        purchaseAt: true,
+        purchase_at: true,
         CreditPackage: {
           name: true,
         },
@@ -141,7 +138,7 @@ async function getCreditPackage(req, res, next) {
           name: item.CreditPackage.name,
           purchased_credits: item.purchased_credits,
           price_paid: parseInt(item.price_paid, 10),
-          purchase_at: item.purchaseAt,
+          purchase_at: item.purchase_at,
         };
       }),
     });
@@ -159,12 +156,12 @@ async function putProfile(req, res, next) {
     return;
   }
   if (req.user.name === name) {
-    errorMessage(res, 400, 'failed', '使用者名稱未變更');
+    next(appError(400, '使用者名稱未變更'));
     return;
   }
   const updatedUser = await userRepo.update({ id }, { name });
   if (updatedUser.affected === 0) {
-    errorMessage(res, 400, 'failed', '更新使用者失敗');
+    next(appError(400, '更新使用者失敗'));
     return;
   }
 
@@ -172,97 +169,70 @@ async function putProfile(req, res, next) {
 }
 
 async function putPassword(req, res, next) {
-  try {
-    const { id } = req.user;
-    const {
-      password,
-      new_password: newPassword,
-      confirm_new_password: confirmNewPassword,
-    } = req.body;
-    if (
-      isUndefined(password) ||
-      isNotValidSting(password) ||
-      isUndefined(newPassword) ||
-      isNotValidSting(newPassword) ||
-      isUndefined(confirmNewPassword) ||
-      isNotValidSting(confirmNewPassword)
-    ) {
-      logger.warn('欄位未填寫正確');
-      res.status(400).json({
-        status: 'failed',
-        message: '欄位未填寫正確',
-      });
-      return;
-    }
-    if (
-      !passwordPattern.test(password) ||
-      !passwordPattern.test(newPassword) ||
-      !passwordPattern.test(confirmNewPassword)
-    ) {
-      logger.warn(
-        '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
-      );
-      res.status(400).json({
-        status: 'failed',
-        message:
-          '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字',
-      });
-      return;
-    }
-    if (newPassword === password) {
-      logger.warn('新密碼不能與舊密碼相同');
-      res.status(400).json({
-        status: 'failed',
-        message: '新密碼不能與舊密碼相同',
-      });
-      return;
-    }
-    if (newPassword !== confirmNewPassword) {
-      logger.warn('新密碼與驗證新密碼不一致');
-      res.status(400).json({
-        status: 'failed',
-        message: '新密碼與驗證新密碼不一致',
-      });
-      return;
-    }
-    const userRepository = dataSource.getRepository('User');
-    const existingUser = await userRepository.findOne({
-      select: ['password'],
-      where: { id },
-    });
-    const isMatch = await bcrypt.compare(password, existingUser.password);
-    if (!isMatch) {
-      res.status(400).json({
-        status: 'failed',
-        message: '密碼輸入錯誤',
-      });
-      return;
-    }
-    const salt = await bcrypt.genSalt(10);
-    const hashPassword = await bcrypt.hash(newPassword, salt);
-    const updatedResult = await userRepository.update(
-      {
-        id,
-      },
-      {
-        password: hashPassword,
-      }
-    );
-    if (updatedResult.affected === 0) {
-      res.status(400).json({
-        status: 'failed',
-        message: '更新密碼失敗',
-      });
-      return;
-    }
-    res.status(200).json({
-      status: 'success',
-      data: null,
-    });
-  } catch (error) {
-    logger.error('更新密碼錯誤:', error);
-    next(error);
+  const { id } = req.user;
+  const {
+    password,
+    new_password: newPassword,
+    confirm_new_password: confirmNewPassword,
+  } = req.body;
+  if (
+    isNotValidSting(password) ||
+    isNotValidSting(newPassword) ||
+    isNotValidSting(confirmNewPassword)
+  ) {
+    logger.warn('欄位未填寫正確');
+    next(appError(400, '欄位未填寫正確'));
+    return;
   }
+  if (
+    isNotValidPassword(password) ||
+    isNotValidPassword(newPassword) ||
+    isNotValidPassword(confirmNewPassword)
+  ) {
+    logger.warn(
+      '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
+    );
+    next(
+      appError(
+        400,
+        '密碼不符合規則，需要包含英文數字大小寫，最短8個字，最長16個字'
+      )
+    );
+    return;
+  }
+  if (newPassword === password) {
+    logger.warn('新密碼不能與舊密碼相同');
+    next(appError(400, '新密碼不能與舊密碼相同'));
+    return;
+  }
+  if (newPassword !== confirmNewPassword) {
+    logger.warn('新密碼與驗證新密碼不一致');
+    next(appError(400, '新密碼與驗證新密碼不一致'));
+    return;
+  }
+  const existingUser = await userRepo.findOne({
+    select: ['password'],
+    where: { id },
+  });
+  const isMatch = await bcrypt.compare(password, existingUser.password);
+  if (!isMatch) {
+    next(appError(400, '密碼輸入錯誤'));
+    return;
+  }
+  const hashPassword = await bcrypt.hash(newPassword, saltRounds);
+  const updatedResult = await userRepo.update(
+    {
+      id,
+    },
+    {
+      password: hashPassword,
+    }
+  );
+  if (updatedResult.affected === 0) {
+    next(appError(400, '更新密碼失敗'));
+    return;
+  }
+  successMessage(res, 200, 'success', null);
 }
 
 async function getCourseBooking(req, res, next) {
@@ -308,7 +278,6 @@ async function getCourseBooking(req, res, next) {
         coachUserIdMap[courseBooking.Course.user_id] =
           courseBooking.Course.user_id;
       });
-      const userRepo = dataSource.getRepository('User');
       const coachUsers = await userRepo.find({
         select: ['id', 'name'],
         where: {

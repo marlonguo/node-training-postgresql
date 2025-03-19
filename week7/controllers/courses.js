@@ -4,7 +4,8 @@ const logger = require('../utils/logger')('CoursesController');
 const express = require('express');
 
 const { dataSource } = require('../db/data-source');
-const { successMessage, errorMessage } = require('../utils/messageUtils');
+const { successMessage } = require('../utils/messageUtils');
+const appError = require('../utils/appError');
 const {
   isUndefined,
   isNotValidSting,
@@ -52,7 +53,7 @@ async function postCourseBooking(req, res, next) {
     },
   });
   if (userCourseBooking) {
-    errorMessage(res, 400, 'failed', '已經報名過此課程');
+    next(appError(400, '已經報名過此課程'));
     return;
   }
 
@@ -73,10 +74,10 @@ async function postCourseBooking(req, res, next) {
   });
 
   if (userUsedCredit >= userCredit) {
-    errorMessage(res, 400, 'failed', '已無可使用堂數');
+    next(appError(400, '已無可使用堂數'));
     return;
   } else if (courseBookingCount >= course.max_participants) {
-    errorMessage(res, 400, 'failed', '已達最大參加人數，無法參加');
+    next(appError(400, '已達最大參加人數，無法參加'));
     return;
   }
 
@@ -99,7 +100,7 @@ async function deleteCourseBooking(req, res, next) {
     },
   });
   if (!userCourseBooking) {
-    errorMessage(res, 400, 'failed', 'ID錯誤');
+    next(appError(400, 'ID錯誤'));
     return;
   }
   const updateResult = await courseBookingRepo.update(
@@ -113,7 +114,7 @@ async function deleteCourseBooking(req, res, next) {
     }
   );
   if (updateResult.affected === 0) {
-    errorMessage(res, 400, 'failed', '取消失敗');
+    next(appError(400, '取消失敗'));
     return;
   }
   successMessage(res, 200, 'success', null);

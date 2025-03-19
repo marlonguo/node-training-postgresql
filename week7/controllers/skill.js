@@ -1,7 +1,8 @@
 const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('SkillController');
 
-const { successMessage, errorMessage } = require('../utils/messageUtils');
+const { successMessage } = require('../utils/messageUtils');
+const appError = require('../utils/appError');
 const {
   isUndefined,
   isNotValidSting,
@@ -20,14 +21,14 @@ async function getAll(req, res, next) {
 async function post(req, res, next) {
   const { name } = req.body;
   if (isUndefined(name) || isNotValidSting(name)) {
-    errorMessage(res, 400, 'failed', '欄位未填寫正確');
+    next(appError(400, '欄位未填寫正確'));
     return;
   }
   const existSkills = await skillRepo.find({
     where: { name },
   });
   if (existSkills.length > 0) {
-    errorMessage(res, 409, 'failed', '資料重複');
+    next(appError(409, '資料重複'));
     return;
   }
   const newSkill = await skillRepo.create({
@@ -40,12 +41,12 @@ async function post(req, res, next) {
 async function deleteSkill(req, res, next) {
   const { skilled } = req.params;
   if (isNotValidSting(skilled) || isNotValidUUID(skilled)) {
-    errorMessage(res, 400, 'failed', 'ID 錯誤');
+    next(appError(400, 'ID 錯誤'));
     return;
   }
   const result = await skillRepo.delete(skilled);
   if (result.affected === 0) {
-    errorMessage(res, 400, 'failed', 'ID 錯誤');
+    next(appError(400, 'ID 錯誤'));
     return;
   }
   successMessage(res, 200, 'success');

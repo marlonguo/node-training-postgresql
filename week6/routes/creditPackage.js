@@ -3,7 +3,8 @@ const express = require('express');
 const router = express.Router();
 const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('CreditPackage');
-const { successMessage, errorMessage } = require('../utils/messageUtils');
+const { successMessage } = require('../utils/messageUtils');
+const appError = require('../utils/appError');
 const {
   isUndefined,
   isNotValidSting,
@@ -37,14 +38,14 @@ router.post('/', async (req, res, next) => {
       isUndefined(price) ||
       isNotValidInteger(price)
     ) {
-      errorMessage(res, 400, 'failed', '欄位未填寫正確');
+      next(appError(400, '欄位未填寫正確'));
       return;
     }
     const existPackages = await creditPackagesRepo.find({
       where: { name },
     });
     if (existPackages.length > 0) {
-      errorMessage(res, 409, 'failed', '資料重複');
+      next(appError(409, '資料重複'));
       return;
     }
     const newPackage = creditPackagesRepo.create({
@@ -63,12 +64,12 @@ router.delete('/:creditPackageId', async (req, res, next) => {
   try {
     const { creditPackageId } = req.params;
     if (isNotValidSting(creditPackageId) || isNotValidUUID(creditPackageId)) {
-      errorMessage(res, 400, 'failed', 'ID 錯誤');
+      next(appError(400, 'ID 錯誤'));
       return;
     }
     const result = await creditPackagesRepo.delete(creditPackageId);
     if (result.affected === 0) {
-      errorMessage(res, 400, 'failed', 'ID 錯誤');
+      next(appError(400, 'ID 錯誤'));
       return;
     }
     successMessage(res, 200, 'success');
@@ -82,14 +83,14 @@ router.post('/:creditPackageId', isAuth, async (req, res, next) => {
     const { id: user_id } = req.user;
     const { creditPackageId } = req.params;
     if (isNotValidUUID(creditPackageId)) {
-      errorMessage(res, 400, 'failed', 'ID 錯誤');
+      next(appError(400, 'ID 錯誤'));
       return;
     }
     const creditPackage = await creditPackagesRepo.findOne({
       where: { id: creditPackageId },
     });
     if (!creditPackage) {
-      errorMessage(res, 400, 'failed', 'ID 錯誤');
+      next(appError(400, 'ID 錯誤'));
       return;
     }
 
@@ -97,7 +98,7 @@ router.post('/:creditPackageId', isAuth, async (req, res, next) => {
       where: { user_id, credit_package_id: creditPackageId },
     });
     if (creaditPurchase) {
-      errorMessage(res, 400, 'failed', '已買此課程');
+      next(appError(400, '已買此方案'));
       return;
     }
 
