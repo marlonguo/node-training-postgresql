@@ -36,6 +36,8 @@ const coachRepo = dataSource.getRepository('Coach');
 const userRepo = dataSource.getRepository('User');
 const courseRepo = dataSource.getRepository('Course');
 const skillRepo = dataSource.getRepository('Skill');
+const courseBookingRepo = dataSource.getRepository('CourseBooking');
+const coachLinkSkillRepo = dataSource.getRepository('CoachLinkSkill');
 
 async function postCourse(req, res, next) {
   const {
@@ -185,64 +187,59 @@ async function getCoachRevenue(req, res, next) {
 }
 
 async function getCoachCourses(req, res, next) {
-  try {
-    const { id } = req.user;
-    const courses = await dataSource.getRepository('Course').find({
-      select: {
-        id: true,
-        name: true,
-        start_at: true,
-        end_at: true,
-        max_participants: true,
-      },
-      where: {
-        user_id: id,
-      },
-    });
-    const courseIds = courses.map((course) => course.id);
-    const coursesParticipant = await dataSource
-      .getRepository('CourseBooking')
-      .createQueryBuilder('course_booking')
-      .select('course_id')
-      .addSelect('COUNT(course_id)', 'count')
-      .where('course_id IN (:...courseIds)', { courseIds })
-      .andWhere('cancelled_at is null')
-      .groupBy('course_id')
-      .getRawMany();
-    logger.info(
-      `coursesParticipant: ${JSON.stringify(coursesParticipant, null, 1)}`
+  const { id } = req.user;
+  // 獲取該教練開的全部課程
+  const courses = await courseRepo.find({
+    select: {
+      id: true,
+      name: true,
+      start_at: true,
+      end_at: true,
+      max_participants: true,
+    },
+    where: {
+      user_id: id,
+    },
+  });
+  const courseIds = courses.map((course) => course.id); // 收集課程 id
+  // 取得該教練每個課程的參加人數
+  const coursesParticipant = await courseBookingRepo
+    .createQueryBuilder('course_booking')
+    .select('course_id')
+    .addSelect('COUNT(course_id)', 'count')
+    .where('course_id IN (:...courseIds)', { courseIds })
+    .andWhere('cancelled_at is null')
+    .groupBy('course_id')
+    .getRawMany();
+  logger.info(
+    `coursesParticipant: ${JSON.stringify(coursesParticipant, null, 1)}`
+  );
+  const now = new Date();
+  const data = courses.map((course) => {
+    const startAt = new Date(course.start_at);
+    const endAt = new Date(course.end_at);
+    let status = '尚未開始';
+    if (startAt < now) {
+      status = '進行中';
+      if (endAt < now) {
+        status = '已結束';
+      }
+    }
+    const courseParticipant = coursesParticipant.find(
+      (courseParticipant) => courseParticipant.course_id === course.id
     );
-    const now = new Date();
-    res.status(200).json({
-      status: 'success',
-      data: courses.map((course) => {
-        const startAt = new Date(course.start_at);
-        const endAt = new Date(course.end_at);
-        let status = '尚未開始';
-        if (startAt < now) {
-          status = '進行中';
-          if (endAt < now) {
-            status = '已結束';
-          }
-        }
-        const courseParticipant = coursesParticipant.find(
-          (courseParticipant) => courseParticipant.course_id === course.id
-        );
-        return {
-          id: course.id,
-          name: course.name,
-          status,
-          start_at: course.start_at,
-          end_at: course.end_at,
-          max_participants: course.max_participants,
-          participants: courseParticipant ? courseParticipant.count : 0,
-        };
-      }),
-    });
-  } catch (error) {
-    logger.error(error);
-    next(error);
-  }
+    return {
+      id: course.id,
+      name: course.name,
+      status,
+      start_at: course.start_at,
+      end_at: course.end_at,
+      max_participants: course.max_participants,
+      participants: courseParticipant ? courseParticipant.count : 0,
+    };
+  });
+
+  successMessage(res, 200, 'success', data);
 }
 
 async function getCoachCourseDetail(req, res, next) {
@@ -420,142 +417,105 @@ async function postCoach(req, res, next) {
 }
 
 async function putCoachProfile(req, res, next) {
-  try {
-    const { id } = req.user;
-    const {
+  const { id } = req.user;
+  const {
+    experience_years: experienceYears,
+    description,
+    profile_image_url: profileImageUrl,
+    skill_ids: skillIds,
+  } = req.body;
+  if (
+    isNotValidInteger(experienceYears) ||
+    isNotValidSting(description) ||
+    isNotValidSting(profileImageUrl) ||
+    !profileImageUrl.startsWith('https') ||
+    !Array.isArray(skillIds) ||
+    skillIds.length === 0 ||
+    skillIds.every((skillId) => isNotValidUUID(skillId))
+  ) {
+    logger.warn('欄位未填寫正確');
+    next(appError(400, '欄位未填寫正確'));
+    return;
+  }
+
+  const coach = await coachRepo.findOne({
+    select: ['id'],
+    where: { user_id: id },
+  });
+
+  if (!coach) {
+    next(appError(400, '找不到教練'));
+    return;
+  }
+
+  // 更新 COACH 表
+  await coachRepo.update(
+    {
+      id: coach.id,
+    },
+    {
       experience_years: experienceYears,
       description,
-      profile_image_url: profileImageUrl = null,
-      skill_ids: skillIds,
-    } = req.body;
-    if (
-      isUndefined(experienceYears) ||
-      isNotValidInteger(experienceYears) ||
-      isUndefined(description) ||
-      isNotValidSting(description) ||
-      isUndefined(profileImageUrl) ||
-      isNotValidSting(profileImageUrl) ||
-      !profileImageUrl.startsWith('https') ||
-      isUndefined(skillIds) ||
-      !Array.isArray(skillIds)
-    ) {
-      logger.warn('欄位未填寫正確');
-      res.status(400).json({
-        status: 'failed',
-        message: '欄位未填寫正確',
-      });
-      return;
+      profile_image_url: profileImageUrl,
     }
-    if (
-      skillIds.length === 0 ||
-      skillIds.every((skill) => isUndefined(skill) || isNotValidSting(skill))
-    ) {
-      logger.warn('欄位未填寫正確');
-      res.status(400).json({
-        status: 'failed',
-        message: '欄位未填寫正確',
-      });
-      return;
-    }
-    const coachRepo = dataSource.getRepository('Coach');
-    const coach = await coachRepo.findOne({
-      select: ['id'],
-      where: { user_id: id },
-    });
-    await coachRepo.update(
-      {
-        id: coach.id,
-      },
-      {
-        experience_years: experienceYears,
-        description,
-        profile_image_url: profileImageUrl,
-      }
-    );
-    const coachLinkSkillRepo = dataSource.getRepository('CoachLinkSkill');
-    const newCoachLinkSkill = skillIds.map((skill) => ({
-      coach_id: coach.id,
-      skill_id: skill,
-    }));
-    await coachLinkSkillRepo.delete({ coach_id: coach.id });
-    const insert = await coachLinkSkillRepo.insert(newCoachLinkSkill);
-    logger.info(
-      `newCoachLinkSkill: ${JSON.stringify(newCoachLinkSkill, null, 1)}`
-    );
-    logger.info(`insert: ${JSON.stringify(insert, null, 1)}`);
-    const result = await coachRepo.find({
-      select: {
-        id: true,
-        experience_years: true,
-        description: true,
-        profile_image_url: true,
-        CoachLinkSkill: {
-          skill_id: true,
-        },
-      },
-      where: { id: coach.id },
-      relations: {
-        CoachLinkSkill: true,
-      },
-    });
-    logger.info(`result: ${JSON.stringify(result, null, 1)}`);
-    res.status(200).json({
-      status: 'success',
-      data: {
-        id: result[0].id,
-        experience_years: result[0].experience_years,
-        description: result[0].description,
-        profile_image_url: result[0].profile_image_url,
-        skill_ids: result[0].CoachLinkSkill.map((skill) => skill.skill_id),
-      },
-    });
-  } catch (error) {
-    logger.error(error);
-    next(error);
-  }
+  );
+
+  // skillIds 為更新後的技能陣列轉成 {coach_id: skill_id} 陣列
+  const newCoachLinkSkill = skillIds.map((skill) => ({
+    coach_id: coach.id,
+    skill_id: skill,
+  }));
+  // 先將 COACK_LINK_SKILL 表中, 將該教練的資料清空
+  await coachLinkSkillRepo.delete({ coach_id: coach.id });
+  // 將新技能增加到 COACK_LINK_SKILL
+  const insert = await coachLinkSkillRepo.insert(newCoachLinkSkill);
+  logger.info(
+    `newCoachLinkSkill: ${JSON.stringify(newCoachLinkSkill, null, 1)}`
+  );
+  logger.info(`insert: ${JSON.stringify(insert, null, 1)}`);
+
+  const result = await coachRepo
+    .createQueryBuilder('coach')
+    .select([
+      'coach.id AS id',
+      'coach.experience_years AS experience_years',
+      'coach.description AS description',
+      'coach.profile_image_url AS profile_image_url',
+      'coachLinkSkill.skill_id AS skill_id',
+    ])
+    .leftJoin('coach.CoachLinkSkill', 'coachLinkSkill')
+    .where(`coach.id = :coach_id`)
+    .setParameter('coach_id', coach.id)
+    .getRawMany();
+  logger.info(`result: ${JSON.stringify(result, null, 1)}`);
+  const { skill_id, ...data } = result[0];
+  data.skill_ids = result.map((item) => item.skill_id);
+
+  successMessage(res, 200, 'success', data);
 }
 
 async function getCoachProfile(req, res, next) {
-  try {
-    const { id } = req.user;
-    const coachRepo = dataSource.getRepository('Coach');
-    const coach = await coachRepo.findOne({
-      select: ['id'],
-      where: { user_id: id },
-    });
-    const result = await dataSource.getRepository('Coach').findOne({
-      select: {
-        id: true,
-        experience_years: true,
-        description: true,
-        profile_image_url: true,
-        CoachLinkSkill: {
-          skill_id: true,
-        },
-      },
-      where: { id: coach.id },
-      relations: {
-        CoachLinkSkill: true,
-      },
-    });
-    logger.info(`result: ${JSON.stringify(result, null, 1)}`);
-    res.status(200).json({
-      status: 'success',
-      data: {
-        id: result.id,
-        experience_years: result.experience_years,
-        description: result.description,
-        profile_image_url: result.profile_image_url,
-        skill_ids:
-          result.CoachLinkSkill.length > 0
-            ? result.CoachLinkSkill.map((skill) => skill.skill_id)
-            : result.CoachLinkSkill,
-      },
-    });
-  } catch (error) {
-    logger.error(error);
-    next(error);
-  }
+  const { id } = req.user;
+
+  const result = await coachRepo
+    .createQueryBuilder('coach')
+    .select([
+      'coach.id AS id',
+      'coach.experience_years AS experience_years',
+      'coach.description AS description',
+      'coach.profile_image_url AS profile_image_url',
+      'coachLinkSkill.skill_id AS skill_id',
+    ])
+    .leftJoin('coach.CoachLinkSkill', 'coachLinkSkill')
+    .where(`coach.user_id = :user_id`)
+    .setParameter('user_id', id)
+    .getRawMany();
+  logger.info(`result: ${JSON.stringify(result, null, 1)}`);
+
+  const { skill_id, ...data } = result[0];
+  data.skill_ids = result.map((item) => item.skill_id);
+
+  successMessage(res, 200, 'success', data);
 }
 
 module.exports = {
