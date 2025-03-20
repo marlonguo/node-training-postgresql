@@ -5,20 +5,20 @@ const { dataSource } = require('../db/data-source');
 const logger = require('../utils/logger')('AdminController');
 
 dayjs.extend(utc);
-const monthMap = {
-  january: 1,
-  february: 2,
-  march: 3,
-  april: 4,
-  may: 5,
-  june: 6,
-  july: 7,
-  august: 8,
-  september: 9,
-  october: 10,
-  november: 11,
-  december: 12,
-};
+const monthArr = [
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
+];
 
 const { successMessage } = require('../utils/messageUtils');
 const appError = require('../utils/appError');
@@ -29,8 +29,6 @@ const {
   isNotValidUUID,
   isNotValidImageURL,
 } = require('../utils/validater');
-const isAuth = require('../middlewares/isAuth');
-const isCoach = require('../middlewares/isCoach');
 
 const coachRepo = dataSource.getRepository('Coach');
 const userRepo = dataSource.getRepository('User');
@@ -38,6 +36,7 @@ const courseRepo = dataSource.getRepository('Course');
 const skillRepo = dataSource.getRepository('Skill');
 const courseBookingRepo = dataSource.getRepository('CourseBooking');
 const coachLinkSkillRepo = dataSource.getRepository('CoachLinkSkill');
+const creditPackageRepo = dataSource.getRepository('CreditPackage');
 
 async function postCourse(req, res, next) {
   const {
@@ -104,86 +103,70 @@ async function postCourse(req, res, next) {
 }
 
 async function getCoachRevenue(req, res, next) {
-  try {
-    const { id } = req.user;
-    const { month } = req.query;
-    if (
-      isUndefined(month) ||
-      !Object.prototype.hasOwnProperty.call(monthMap, month)
-    ) {
-      logger.warn('欄位未填寫正確');
-      res.status(400).json({
-        status: 'failed',
-        message: '欄位未填寫正確',
-      });
-      return;
-    }
-    const courseRepo = dataSource.getRepository('Course');
-    const courses = await courseRepo.find({
-      select: ['id'],
-      where: { user_id: id },
-    });
-    const courseIds = courses.map((course) => course.id);
-    if (courseIds.length === 0) {
-      res.status(200).json({
-        status: 'success',
-        data: {
-          total: {
-            revenue: 0,
-            participants: 0,
-            course_count: 0,
-          },
-        },
-      });
-      return;
-    }
-    const courseBookingRepo = dataSource.getRepository('CourseBooking');
-    const year = new Date().getFullYear();
-    const calculateStartAt = dayjs(`${year}-${month}-01`)
-      .startOf('month')
-      .toISOString();
-    const calculateEndAt = dayjs(`${year}-${month}-01`)
-      .endOf('month')
-      .toISOString();
-    const courseCount = await courseBookingRepo
-      .createQueryBuilder('course_booking')
-      .select('COUNT(*)', 'count')
-      .where('course_id IN (:...ids)', { ids: courseIds })
-      .andWhere('cancelled_at IS NULL')
-      .andWhere('created_at >= :startDate', { startDate: calculateStartAt })
-      .andWhere('created_at <= :endDate', { endDate: calculateEndAt })
-      .getRawOne();
-    const participants = await courseBookingRepo
-      .createQueryBuilder('course_booking')
-      .select('COUNT(DISTINCT(user_id))', 'count')
-      .where('course_id IN (:...ids)', { ids: courseIds })
-      .andWhere('cancelled_at IS NULL')
-      .andWhere('created_at >= :startDate', { startDate: calculateStartAt })
-      .andWhere('created_at <= :endDate', { endDate: calculateEndAt })
-      .getRawOne();
-    const totalCreditPackage = await dataSource
-      .getRepository('CreditPackage')
-      .createQueryBuilder('credit_package')
-      .select('SUM(credit_amount)', 'total_credit_amount')
-      .addSelect('SUM(price)', 'total_price')
-      .getRawOne();
-    const perCreditPrice =
-      totalCreditPackage.total_price / totalCreditPackage.total_credit_amount;
-    const totalRevenue = courseCount.count * perCreditPrice;
-    res.status(200).json({
-      status: 'success',
-      data: {
-        total: {
-          revenue: Math.floor(totalRevenue),
-          participants: parseInt(participants.count, 10),
-          course_count: parseInt(courseCount.count, 10),
-        },
-      },
-    });
-  } catch (error) {
-    logger.error(error);
-    next(error);
+  const { id } = req.user;
+  const { month } = req.query;
+  if (isUndefined(month) || !monthArr.includes(month)) {
+    logger.warn('欄位未填寫正確');
+    next(appError(400, '欄位未填寫正確'));
+    return;
   }
+  const courses = await courseRepo.find({
+    select: ['id'],
+    where: { user_id: id },
+  });
+  const courseIds = courses.map((course) => course.id);
+  if (courseIds.length === 0) {
+    const data = {
+      total: {
+        participants: 0,
+        revenue: 0,
+        course_count: 0,
+      },
+    };
+    successMessage(res, 200, 'success', data);
+    return;
+  }
+  const year = new Date().getFullYear();
+  const calculateStartAt = dayjs(`${year}-${month}-01`)
+    .startOf('month')
+    .toISOString();
+  const calculateEndAt = dayjs(`${year}-${month}-01`)
+    .endOf('month')
+    .toISOString();
+
+  // 該月報名人數, 該月學生報名總課堂數
+  const {
+    participants,
+    course_count,
+  } = await courseBookingRepo
+    .createQueryBuilder('course_booking')
+    .select('COUNT(DISTINCT(user_id))', 'participants')
+    .addSelect('COUNT(*)', 'course_count')
+    .where('course_id IN (:...ids)', { ids: courseIds })
+    .andWhere('cancelled_at IS NULL')
+    .andWhere('created_at >= :startDate', { startDate: calculateStartAt })
+    .andWhere('created_at <= :endDate', { endDate: calculateEndAt })
+    .getRawOne();
+
+  // 計算購買方案總課堂數與總價格, 可得平均一堂價格, 以此來當作教練每個學生報名一堂課的收入
+  const totalCreditPackage = await creditPackageRepo
+    .createQueryBuilder('credit_package')
+    .select('SUM(credit_amount)', 'total_credit_amount')
+    .addSelect('SUM(price)', 'total_price')
+    .getRawOne();
+  const perCreditPrice =
+    totalCreditPackage.total_price / totalCreditPackage.total_credit_amount;
+  const totalRevenue = course_count * perCreditPrice;
+
+  const data = {
+    total: {
+      revenue: Math.floor(totalRevenue),
+      participants: parseInt(participants, 10),
+      course_count: parseInt(course_count, 10),
+    },
+  };
+
+  successMessage(res, 200, 'success', data);
 }
 
 async function getCoachCourses(req, res, next) {
